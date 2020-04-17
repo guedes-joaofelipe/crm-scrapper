@@ -30,8 +30,12 @@ def scrap_state(uf, start_page = 1):
     """    
     
     print ("Scrapping ", uf)
+    
+    options = webdriver.chrome.options.Options()
+    options.add_argument("--incognito")
+    driver = webdriver.Chrome(options=options)
 
-    driver = webdriver.Chrome()
+    #driver = webdriver.Chrome()
 
     try:
         # Setting driver and variables
