@@ -1,5 +1,21 @@
 from datetime import datetime
 import sys
+import os
+
+def check_file(filepath):
+    """ Checks whether file in filepath exists
+    
+    Arguments:
+        filepath {str} -- path to file
+    
+    Returns:
+        bool -- True if file exists, False otherwise
+    """    
+
+    if os.path.isfile(filepath):
+        return True
+    
+    return False
 
 class ProgressBar:
     """ A class to show clean progress bar    

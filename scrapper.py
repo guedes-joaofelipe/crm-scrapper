@@ -14,7 +14,16 @@ import utils
 # Número precedido da sigla ‘EME’: inscrição de estudante médico estrangeiro.
 # Número precedido do número ‘300’: inscrição de médico estrangeiro com visto provisório.
 
-def scrap_state(uf, start_page = 1):
+def save_dataframe(df, filepath, append = True):
+    if append and utils.check_file(filepath):   
+        print ("Appending to existing dataframe")
+        df_saved = pd.read_csv(filepath, sep=';')
+        df = pd.concat([df_saved, df])
+
+    df.to_csv(filepath, sep=';', index=None)
+    print ("File saved at {}".format(filepath))
+
+def scrap_state(uf, start_page = 1, end_page = -1, append = True):
     """ Extracts all physicians' profiles from a given state (uf).
         If start_page > 1, a file containing previous scrap for that 
         state is loaded.
@@ -24,6 +33,7 @@ def scrap_state(uf, start_page = 1):
     
     Keyword Arguments:
         start_page {int} -- which page to start the scrapping (default: {1})
+        start_page {int} -- which page to end the scrapping (default: {-1})
     
     Returns:
         boolean -- whether or not the scrap was successfull
@@ -35,12 +45,9 @@ def scrap_state(uf, start_page = 1):
     options.add_argument("--incognito")
     driver = webdriver.Chrome(options=options)
 
-    #driver = webdriver.Chrome()
-
     try:
         # Setting driver and variables
-        progbar = utils.ProgressBar(elapsed_time=True)
-        progbar.update_progress(0)
+        progbar = utils.ProgressBar(elapsed_time=True)        
 
         url = "https://portal.cfm.org.br/index.php?option=com_medicos&nomeMedico=&ufMedico={}&crmMedico=&municipioMedico=&tipoInscricaoMedico=&situacaoMedico=&detalheSituacaoMedico=&especialidadeMedico=&areaAtuacaoMedico=&pagina=3"
         url = url.format(uf)
@@ -48,18 +55,22 @@ def scrap_state(uf, start_page = 1):
 
         # Searching for the total number of pages to scrap
         result = re.search("Mostrando página \d de (\d+)", driver.page_source)
-        end_page = 15000 if result == None else int(result.groups()[0])
+        if result is not None:
+            print ("Total number of pages to scrap: ", result.groups()[0])
 
-        print ("Number of pages to crawl at {}: {}".format(uf, end_page))
+        if end_page == -1:            
+            end_page = 15000 if result == None else int(result.groups()[0])            
+
+        print ("Scrapping from pages {} to {} at {}".format(
+                  start_page, end_page, uf))
         
         # If start_page > 1, check an existing file with previous scrap
-        if start_page <= 1:
-            df = pd.DataFrame(columns=["page", "name", "crm", "state", 
-                "subscription_date", "subscription_type", "status", 
-                "second_subscription", "address", "phone", "photo_url"])
-        else:
-            df = pd.read_csv("./data/profiles/df_{}.csv".format(uf), sep=';')
-
+        
+        df = pd.DataFrame(columns=["page", "name", "crm", "state", 
+            "subscription_date", "subscription_type", "status", 
+            "second_subscription", "address", "phone", "photo_url"])
+        
+        progbar.update_progress(0)
         for page in range(start_page, end_page, 1):
             progbar.update_progress((page-1)/end_page)
         
@@ -115,7 +126,9 @@ def scrap_state(uf, start_page = 1):
         
         print ("Number of extracted profiles for {}: {}".format(uf, df.shape[0]))
 
-        df.to_csv("./data/profiles/df_{}.csv".format(uf), sep=';', index=None)
+        filepath = "./data/profiles/df_{}.csv".format(uf)
+
+        save_dataframe(df, filepath, append)
 
         driver.close()
 
@@ -123,24 +136,29 @@ def scrap_state(uf, start_page = 1):
 
     except Exception as e:
         print ("Error scrapping {} at page {}: {}".format(uf, page, e))
-        df.to_csv("./data/profiles/df_{}.csv".format(uf), sep=';', index=None)
 
-        driver.close()
+    save_dataframe(df, filepath, append)
 
-        return False
+    driver.close()
+
+    return False
 
 if __name__ == "__main__":
        
     parser = argparse.ArgumentParser(description='Process some integers.')
     parser.add_argument('--start_page', '-s', dest='start_page', default=1, help='Index of the first page to start scrapping')
+    parser.add_argument('--end_page', '-e', dest='end_page', default=-1, help='Index of the last page to scrap')
     parser.add_argument('--uf', '-u', dest='uf', default=None, help='State to run the script')
+    parser.add_argument('--append', '-a', dest='append', default=1, help='Whether or not to append process to existing dataframe')
     args = parser.parse_args()
 
     uf = args.uf
-    start_page = args.start_page
+    start_page = int(args.start_page)
+    end_page = int(args.end_page)
+    append = bool(int(args.append))
 
     if uf is not None:
-        scrap_state(uf, int(start_page))
+        scrap_state(uf, start_page, end_page, append)
     else:
 
         ufs = [
@@ -149,15 +167,15 @@ if __name__ == "__main__":
             # 'AM', # OK
             # 'AP', # OK
             # 'BA', # OK
-            # 'CE', # Progress
+            # 'CE', # OK
             # 'DF', # OK
-            # 'ES', # Progress
+            # 'ES', # OK
             # 'GO', # OK
             # 'MA', # OK
-            # 'MG', # Progress
+            # 'MG', # OK
             # 'MT', # OK
             # 'MS', # OK
-            # 'PA', # Progress
+            # 'PA', # OK
             # 'PB', # OK
             # 'PE', # OK
             # 'PI', # OK
